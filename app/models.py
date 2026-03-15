@@ -2,7 +2,7 @@
 from sqlalchemy import Column, Integer, String
 
 # Import Base class from database configuration
-from database import Base
+from app.database import Base
 
 
 # Define Idea table model

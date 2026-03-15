@@ -1,122 +1,123 @@
-# Import FastAPI framework for building the API
+# Import FastAPI framework
 from fastapi import FastAPI
 
-# Import os module to work with environment variables
-import os
-
-# Import requests library to fetch data from external APIs
+# Import requests library to call external APIs
 import requests
 
-# Import dotenv to load variables from .env file
-from dotenv import load_dotenv
+# Import os module to read environment variables
+import os
 
-# Import database engine and session
-from database import engine, SessionLocal
+# Import database session and base
+from app.database import SessionLocal, engine
 
 # Import database models
-from models import Base, Idea
+from app.models import Base, Idea
 
-# Import Pydantic schema
-from schemas import IdeaCreate
+# Import Pydantic schema for request validation
+from app.schemas import IdeaCreate
 
-# Load environment variables from .env file
-load_dotenv()
 
-# Create database tables automatically
+# Create database tables if they do not exist
 Base.metadata.create_all(bind=engine)
 
-# Create FastAPI application instance
-app = FastAPI()
 
-# Read environment variable
-APP_ENV = os.getenv("APP_ENV")
+# Create FastAPI application with metadata
+app = FastAPI(
+    title="StartSmart API",
+    description="Backend API that helps entrepreneurs analyze market trends before launching a business.",
+    version="1.0.0"
+)
 
 
-# -----------------------------
-# Health Check Endpoint
-# -----------------------------
-@app.get("/health")
-def health():
-    # Return JSON response to confirm the API is running
+# Root endpoint for API information
+@app.get("/")
+def read_root():
+    # Return basic information about the API
     return {
-        "status": "healthy",
-        "version": "1.0.0",
-        "environment": APP_ENV
+        "message": "Welcome to StartSmart API",
+        "description": "API that helps entrepreneurs analyze market trends before starting a business",
+        "version": "1.0.0"
     }
 
 
-# -----------------------------
-# Market Trends Endpoint
-# -----------------------------
+# Health check endpoint
+@app.get("/health")
+def health_check():
+    # This endpoint is used to verify that the API is running correctly
+    return {
+        "status": "healthy",
+        "version": "1.0.0"
+    }
+
+
+# Endpoint to fetch market trends from an external API
 @app.get("/market-trends")
-def market_trends():
+def get_market_trends():
 
-    # GitHub API URL for a popular repository
-    url = "https://api.github.com/repos/openai/openai-python"
+    # Example external API (GitHub public API)
+    url = "https://api.github.com/search/repositories?q=startup&sort=stars&order=desc"
 
-    # Send GET request to GitHub API
+    # Send GET request to external API
     response = requests.get(url)
 
-    # Check if API request succeeded
-    if response.status_code == 200:
-
-        # Convert response to JSON
-        data = response.json()
-
-        # Extract important metrics
-        repo_name = data["name"]
-        stars = data["stargazers_count"]
-        forks = data["forks_count"]
-
-        # Simple trend score calculation
-        trend_score = stars + forks
-
-        # Return analyzed market trend data
+    # Check if request was successful
+    if response.status_code != 200:
         return {
-            "repository": repo_name,
-            "stars": stars,
-            "forks": forks,
-            "trend_score": trend_score,
-            "analysis": "This repository shows strong developer interest and market trend."
+            "error": "External API is unavailable"
         }
 
-    else:
-        # Return error message if external API fails
-        return {
-            "error": "External API is not available at the moment"
-        }
+    # Parse JSON response
+    data = response.json()
+
+    # Extract useful data from response
+    items = data["items"][:3]
+
+    # Create simplified result list
+    trends = []
+
+    for repo in items:
+        trends.append({
+            "name": repo["name"],
+            "stars": repo["stargazers_count"],
+            "url": repo["html_url"]
+        })
+
+    # Return processed trend data
+    return {
+        "market_trends": trends
+    }
 
 
-# -----------------------------
-# POST Endpoint to Save Ideas
-# -----------------------------
+# Endpoint to create a new idea in the database
 @app.post("/ideas")
 def create_idea(idea: IdeaCreate):
 
     # Create database session
     db = SessionLocal()
 
-    # Create new Idea object
+    # Create Idea object using request data
     new_idea = Idea(
         idea=idea.idea,
         description=idea.description
     )
 
-    # Add object to database
+    # Add idea to database session
     db.add(new_idea)
 
-    # Commit transaction
+    # Commit transaction to save idea
     db.commit()
+
+    # Refresh object to get updated values (like id)
+    db.refresh(new_idea)
 
     # Close database session
     db.close()
 
-    return {"message": "Idea saved successfully"}
+    # Return created idea
+    return new_idea
 
 
-# -----------------------------
-# GET Endpoint to Retrieve Ideas
-# -----------------------------
+# Endpoint to retrieve all saved ideas
 @app.get("/ideas")
 def get_ideas():
 
