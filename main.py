@@ -1,29 +1,40 @@
-# Import FastAPI framework for building the API
+# Import FastAPI framework to build the API
 from fastapi import FastAPI
 
-# Import os module to read environment variables
+# Import os module to work with environment variables
 import os
 
 # Import requests library to fetch data from external APIs
 import requests
 
-# Import load_dotenv to load variables from the .env file
+# Import dotenv to load variables from .env file
 from dotenv import load_dotenv
 
-# Load environment variables from the .env file
+# Import database engine and session
+from database import engine, SessionLocal
+
+# Import database models
+from models import Base, Idea
+
+# Load environment variables
 load_dotenv()
 
-# Create the FastAPI application instance
+# Create database tables automatically
+Base.metadata.create_all(bind=engine)
+
+# Create FastAPI application instance
 app = FastAPI()
 
-# Read the APP_ENV variable from the environment
+# Read environment variable
 APP_ENV = os.getenv("APP_ENV")
 
 
-# Create a health check endpoint
+# -----------------------------
+# Health check endpoint
+# -----------------------------
 @app.get("/health")
 def health():
-    # Return a JSON response that confirms the server is running
+    # Return JSON response to confirm server is running
     return {
         "status": "healthy",
         "version": "1.0.0",
@@ -31,31 +42,33 @@ def health():
     }
 
 
-# Create an endpoint to analyze market trends using GitHub data
+# -----------------------------
+# Market trends endpoint
+# -----------------------------
 @app.get("/market-trends")
 def market_trends():
 
-    # Define the GitHub API URL for a popular repository
+    # GitHub API URL
     url = "https://api.github.com/repos/openai/openai-python"
 
-    # Send a GET request to the GitHub API
+    # Send GET request to GitHub API
     response = requests.get(url)
 
-    # Check if the API request was successful
+    # Check if request succeeded
     if response.status_code == 200:
 
-        # Convert the API response into JSON format
+        # Convert response to JSON
         data = response.json()
 
-        # Extract important data fields from the JSON
+        # Extract important information
         repo_name = data["name"]
         stars = data["stargazers_count"]
         forks = data["forks_count"]
 
-        # Create a simple trend score calculation
+        # Calculate a simple trend score
         trend_score = stars + forks
 
-        # Return a customized JSON response
+        # Return custom JSON response
         return {
             "repository": repo_name,
             "stars": stars,
@@ -65,7 +78,50 @@ def market_trends():
         }
 
     else:
-        # Return a friendly error message if the API request fails
+        # Return friendly error if API fails
         return {
             "error": "External API is not available at the moment"
         }
+
+
+# -----------------------------
+# POST endpoint to save ideas
+# -----------------------------
+@app.post("/ideas")
+def create_idea(idea: str, description: str):
+
+    # Create database session
+    db = SessionLocal()
+
+    # Create Idea object
+    new_idea = Idea(idea=idea, description=description)
+
+    # Add object to database
+    db.add(new_idea)
+
+    # Commit transaction
+    db.commit()
+
+    # Close session
+    db.close()
+
+    return {"message": "Idea saved successfully"}
+
+
+# -----------------------------
+# GET endpoint to retrieve ideas
+# -----------------------------
+@app.get("/ideas")
+def get_ideas():
+
+    # Create database session
+    db = SessionLocal()
+
+    # Query all ideas from database
+    ideas = db.query(Idea).all()
+
+    # Close session
+    db.close()
+
+    # Return list of ideas
+    return ideas
