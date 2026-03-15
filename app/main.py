@@ -1,4 +1,4 @@
-# Import FastAPI framework to build the API
+# Import FastAPI framework for building the API
 from fastapi import FastAPI
 
 # Import os module to work with environment variables
@@ -16,7 +16,10 @@ from database import engine, SessionLocal
 # Import database models
 from models import Base, Idea
 
-# Load environment variables
+# Import Pydantic schema
+from schemas import IdeaCreate
+
+# Load environment variables from .env file
 load_dotenv()
 
 # Create database tables automatically
@@ -30,11 +33,11 @@ APP_ENV = os.getenv("APP_ENV")
 
 
 # -----------------------------
-# Health check endpoint
+# Health Check Endpoint
 # -----------------------------
 @app.get("/health")
 def health():
-    # Return JSON response to confirm server is running
+    # Return JSON response to confirm the API is running
     return {
         "status": "healthy",
         "version": "1.0.0",
@@ -43,32 +46,32 @@ def health():
 
 
 # -----------------------------
-# Market trends endpoint
+# Market Trends Endpoint
 # -----------------------------
 @app.get("/market-trends")
 def market_trends():
 
-    # GitHub API URL
+    # GitHub API URL for a popular repository
     url = "https://api.github.com/repos/openai/openai-python"
 
     # Send GET request to GitHub API
     response = requests.get(url)
 
-    # Check if request succeeded
+    # Check if API request succeeded
     if response.status_code == 200:
 
         # Convert response to JSON
         data = response.json()
 
-        # Extract important information
+        # Extract important metrics
         repo_name = data["name"]
         stars = data["stargazers_count"]
         forks = data["forks_count"]
 
-        # Calculate a simple trend score
+        # Simple trend score calculation
         trend_score = stars + forks
 
-        # Return custom JSON response
+        # Return analyzed market trend data
         return {
             "repository": repo_name,
             "stars": stars,
@@ -78,23 +81,26 @@ def market_trends():
         }
 
     else:
-        # Return friendly error if API fails
+        # Return error message if external API fails
         return {
             "error": "External API is not available at the moment"
         }
 
 
 # -----------------------------
-# POST endpoint to save ideas
+# POST Endpoint to Save Ideas
 # -----------------------------
 @app.post("/ideas")
-def create_idea(idea: str, description: str):
+def create_idea(idea: IdeaCreate):
 
     # Create database session
     db = SessionLocal()
 
-    # Create Idea object
-    new_idea = Idea(idea=idea, description=description)
+    # Create new Idea object
+    new_idea = Idea(
+        idea=idea.idea,
+        description=idea.description
+    )
 
     # Add object to database
     db.add(new_idea)
@@ -102,14 +108,14 @@ def create_idea(idea: str, description: str):
     # Commit transaction
     db.commit()
 
-    # Close session
+    # Close database session
     db.close()
 
     return {"message": "Idea saved successfully"}
 
 
 # -----------------------------
-# GET endpoint to retrieve ideas
+# GET Endpoint to Retrieve Ideas
 # -----------------------------
 @app.get("/ideas")
 def get_ideas():
@@ -117,10 +123,10 @@ def get_ideas():
     # Create database session
     db = SessionLocal()
 
-    # Query all ideas from database
+    # Query all saved ideas
     ideas = db.query(Idea).all()
 
-    # Close session
+    # Close database session
     db.close()
 
     # Return list of ideas
