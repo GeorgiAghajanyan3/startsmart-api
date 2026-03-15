@@ -45,7 +45,7 @@ Example response:
 
 Installation
 Clone the repository:
-git clone <your-repository-url>
+git clone https://github.com/GeorgiAghajanyan3/startsmart-api
 
 Navigate to the project folder:
 cd startsmart
