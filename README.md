@@ -108,3 +108,5 @@ docker run -p 8000:8000 aghajanyangeorgi/startsmart:v1
 
 Pull from Docker Hub:
 docker pull aghajanyangeorgi/startsmart:v1
+
+ 
